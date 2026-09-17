@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 type Entry = { text: string; start: number; duration: number };
 
@@ -30,16 +30,10 @@ export default function Home() {
   const [data, setData] = useState<TranscriptResp | null>(null);
   const [showTimes, setShowTimes] = useState(true);
 
-  const [summary, setSummary] = useState<string | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-
   async function handleFetch(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setData(null);
-    setSummary(null);
-    setSummaryError(null);
     if (!url.trim()) return;
     setLoading(true);
     try {
@@ -74,33 +68,6 @@ export default function Home() {
     link.download = `transcript.${format}`;
     link.click();
     URL.revokeObjectURL(link.href);
-  }
-
-  async function handleSummary() {
-    if (!data) return;
-    setSummary(null);
-    setSummaryError(null);
-    setSummaryLoading(true);
-    try {
-      const text = data.entries.map((e) => e.text).join(" ");
-      const res = await fetch(`${API}/api/summary`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript: text, language: data.language }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? "Zusammenfassung fehlgeschlagen.");
-      }
-      const json = await res.json();
-      setSummary(json.summary);
-    } catch (err) {
-      setSummaryError(
-        err instanceof Error ? err.message : "Unbekannter Fehler."
-      );
-    } finally {
-      setSummaryLoading(false);
-    }
   }
 
   return (
@@ -176,13 +143,6 @@ export default function Home() {
             >
               .vtt herunterladen
             </button>
-            <button
-              onClick={handleSummary}
-              disabled={summaryLoading}
-              className="ml-auto rounded-md border border-neutral-800 bg-neutral-900 px-3 py-1 text-xs hover:bg-neutral-800 disabled:opacity-50"
-            >
-              {summaryLoading ? "KI denkt nach…" : "KI-Zusammenfassung"}
-            </button>
           </div>
 
           <div className="mt-4 rounded-md border border-neutral-800 bg-neutral-950 p-4">
@@ -199,22 +159,6 @@ export default function Home() {
               ))}
             </div>
           </div>
-
-          {(summary || summaryError) && (
-            <div className="mt-6 rounded-md border border-neutral-800 bg-neutral-950 p-4">
-              <h2 className="mb-2 text-sm font-medium text-neutral-300">
-                KI-Zusammenfassung
-              </h2>
-              {summaryError && (
-                <p className="text-sm text-red-300">{summaryError}</p>
-              )}
-              {summary && (
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-200">
-                  {summary}
-                </p>
-              )}
-            </div>
-          )}
         </section>
       )}
     </main>

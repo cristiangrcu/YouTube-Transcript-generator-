@@ -10,14 +10,14 @@ env/
 node_modules/
 .next/
 out/
-next-env.d.ts.bak
+
+# Vercel
+.vercel
 
 # Env / secrets
 .env
 .env.local
 .env.*.local
-backend/.env
-frontend/.env.local
 
 # OS / editor
 .DS_Store

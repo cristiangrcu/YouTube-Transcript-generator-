@@ -1,70 +1,63 @@
 # YouTube Transcript Generator
 
-Ein Tool, mit dem man einen YouTube-Link einfügt und **das Original-Transkript
-von YouTube 1:1 zurückbekommt** — kein Umformulieren, kein Ersetzen von Wörtern.
-Zusätzlich gibt es Downloads als `.txt`, `.srt` und `.vtt` und eine optionale
-KI-Zusammenfassung.
+Link einfügen → Original-Transkript von YouTube 1:1 zurückbekommen (kein
+Umformulieren, keine Wortänderungen). Downloads als `.txt`, `.srt` und `.vtt`.
+
+Läuft als Next.js-Frontend + Python-Serverless-Function auf Vercel.
 
 ## Projektstruktur
 
 ```
-backend/    Python FastAPI — holt Transkript & baut Downloads
-frontend/   Next.js UI — Link-Input, Anzeige, Buttons
+api/index.py          FastAPI-App (Serverless Function auf Vercel)
+app/                  Next.js-Frontend
+requirements.txt      Python-Deps für die Serverless Function
+vercel.json           Routing /api/* → api/index.py
+package.json          Next.js-Deps
 ```
 
-## Was macht was
+## Deployment auf Vercel
 
-- **`backend/transcript.py`** — extrahiert die Video-ID aus jedem gängigen
-  YouTube-Link-Format und holt das Transkript über `youtube-transcript-api`.
-  Wenn kein Transkript existiert, kommt eine klare Fehlermeldung zurück.
-- **`backend/formats.py`** — konvertiert die Segmente in `.txt`, `.srt` oder `.vtt`.
-- **`backend/summary.py`** — optionale KI-Zusammenfassung über Claude (Anthropic).
-  Läuft nur wenn der Nutzer auf den Button drückt und ein API-Key gesetzt ist.
-- **`frontend/app/page.tsx`** — Eingabefeld, Segment-Liste mit Zeitstempeln,
-  Download-Buttons und Zusammenfassungs-Button.
+Repo mit Vercel verknüpfen — Vercel erkennt automatisch:
 
-## Setup
+- Next.js im Root → wird gebaut & gehostet
+- `api/index.py` + `requirements.txt` → Python-Serverless-Function
+- `vercel.json` sorgt dafür, dass `/api/*` alle an die FastAPI-App gehen
 
-### Backend
+Keine Env-Variablen nötig.
+
+## Lokale Entwicklung
+
+Am einfachsten mit der Vercel CLI (alles auf `localhost:3000`):
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-cp .env.example .env
-# ANTHROPIC_API_KEY eintragen (nur nötig für die KI-Zusammenfassung)
-
-uvicorn main:app --reload --port 8000
+npm install
+npm install -g vercel
+vercel dev
 ```
 
-Läuft dann auf `http://localhost:8000`.
-
-### Frontend
+Alternativ getrennt (Python-Backend separat auf `:8000`):
 
 ```bash
-cd frontend
+# Terminal 1 - Python
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt uvicorn
+uvicorn api.index:app --reload --port 8000
+
+# Terminal 2 - Next.js
 npm install
 cp .env.local.example .env.local
-
+# in .env.local NEXT_PUBLIC_API_URL=http://localhost:8000 eintragen
 npm run dev
 ```
 
-Läuft dann auf `http://localhost:3000`.
-
-## Bedienung
-
-1. YouTube-Link ins Eingabefeld pasten (jedes Format geht — `youtu.be/…`,
-   `youtube.com/watch?v=…`, `youtube.com/shorts/…`, `youtube.com/embed/…`).
-2. **Transkript holen** klicken → Original-Transkript erscheint mit Zeitstempeln.
-3. Über die Buttons als `.txt`, `.srt` oder `.vtt` herunterladen.
-4. Optional: **KI-Zusammenfassung** — separates Feature, das Transkript selbst
-   bleibt davon unangetastet.
-
-## API (Backend)
+## API
 
 - `POST /api/transcript` — `{ "url": "..." }` → Transkript-Segmente
 - `POST /api/download` — `{ "entries": [...], "format": "txt|srt|vtt" }` → Datei
-- `POST /api/summary` — `{ "transcript": "...", "language": "de" }` → KI-Text
 - `GET /api/health` — Health-Check
+
+## Bekanntes Risiko
+
+`youtube-transcript-api` nutzt inoffizielle YouTube-Endpoints. YouTube blockiert
+manchmal Cloud-IPs (Vercel, AWS, …). Wenn's auf Vercel nicht sauber läuft, ist
+der übliche Fix ein Umzug des Python-Teils auf Railway / Fly.io.
