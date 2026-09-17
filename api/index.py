@@ -1,4 +1,6 @@
 import re
+import sys
+import traceback
 from urllib.parse import urlparse, parse_qs
 
 from fastapi import FastAPI, HTTPException
@@ -47,14 +49,24 @@ def fetch_transcript(url: str, preferred_languages: list[str] | None = None) -> 
     video_id = extract_video_id(url)
     languages = preferred_languages or ["de", "en"]
 
+    print(f"[transcript] fetching video_id={video_id}", file=sys.stderr, flush=True)
+
     try:
         transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
-    except TranscriptsDisabled:
-        raise TranscriptError("Für dieses Video sind Untertitel deaktiviert.")
-    except VideoUnavailable:
+    except TranscriptsDisabled as e:
+        print(f"[transcript] TranscriptsDisabled: {e}", file=sys.stderr, flush=True)
+        raise TranscriptError(
+            "YouTube meldet: Untertitel deaktiviert. Auf Cloud-Hosts kann das "
+            "auch ein IP-Block sein (TranscriptsDisabled)."
+        )
+    except VideoUnavailable as e:
+        print(f"[transcript] VideoUnavailable: {e}", file=sys.stderr, flush=True)
         raise TranscriptError("Das Video ist nicht verfügbar.")
     except Exception as e:
-        raise TranscriptError(f"YouTube konnte nicht abgefragt werden: {e}")
+        traceback.print_exc(file=sys.stderr)
+        raise TranscriptError(
+            f"YouTube-Abfrage fehlgeschlagen ({type(e).__name__}): {e}"
+        )
 
     transcript = None
     try:
@@ -70,7 +82,13 @@ def fetch_transcript(url: str, preferred_languages: list[str] | None = None) -> 
     if transcript is None:
         raise TranscriptError("Für dieses Video wurde kein Transkript auf YouTube gefunden.")
 
-    entries = transcript.fetch()
+    try:
+        entries = transcript.fetch()
+    except Exception as e:
+        traceback.print_exc(file=sys.stderr)
+        raise TranscriptError(
+            f"Transkript-Daten konnten nicht geladen werden ({type(e).__name__}): {e}"
+        )
 
     return {
         "video_id": video_id,
